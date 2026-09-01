@@ -21,7 +21,6 @@ def ambil_waktu_exif(img):
 def dapatkan_font(ukuran_ideal):
     font_name = "Roboto-Regular.ttf"
     
-    # Jika font belum ada di folder, aplikasi akan mengunduhnya otomatis
     if not os.path.exists(font_name):
         try:
             url = "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf"
@@ -39,28 +38,49 @@ def beri_watermark(img, teks_waktu, teks_lokasi):
     img = ImageOps.exif_transpose(img)
     draw = ImageDraw.Draw(img)
     
-    # MENGHITUNG UKURAN PROPORSIONAL BUKAN HANYA DARI TINGGI
-    # Mengambil dimensi terkecil antara lebar dan tinggi foto
     dimensi_terkecil = min(img.width, img.height)
-    
-    # Dibagi 35 agar pas (tidak sekecil semut, tidak sebesar raksasa)
     ukuran_font_ideal = max(int(dimensi_terkecil / 35), 14) 
     font = dapatkan_font(ukuran_font_ideal)
-        
+    
+    # Margin diperbesar menjadi 5% untuk padding yang lebih lega
+    margin_x = int(img.width * 0.05)
+    margin_y = int(img.height * 0.05)
+    
+    # Lebar maksimal teks sebelum dipotong ke baris baru
+    max_text_width = img.width - (margin_x * 2)
+    
+    # Fungsi otomatis untuk membungkus (wrap) teks panjang
+    def wrap_text(text, font, max_w):
+        wrapped = []
+        for line in text.split('\n'):
+            if draw.textbbox((0, 0), line, font=font)[2] <= max_w:
+                wrapped.append(line)
+            else:
+                words = line.split()
+                current_line = ""
+                for word in words:
+                    test_line = current_line + " " + word if current_line else word
+                    if draw.textbbox((0, 0), test_line, font=font)[2] <= max_w:
+                        current_line = test_line
+                    else:
+                        if current_line:
+                            wrapped.append(current_line)
+                        current_line = word
+                if current_line:
+                    wrapped.append(current_line)
+        return '\n'.join(wrapped)
+
     teks_lengkap = f"{teks_waktu}\n{teks_lokasi}"
     
-    bbox = draw.textbbox((0, 0), teks_lengkap, font=font, align="left")
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
+    # Menerapkan auto-wrap agar teks tidak tembus ke kanan
+    teks_lengkap = wrap_text(teks_lengkap, font, max_text_width)
     
-    # Margin 3% dari ukuran foto agar tidak terlalu mepet tepi
-    margin_x = int(img.width * 0.03)
-    margin_y = int(img.height * 0.03)
+    bbox = draw.textbbox((0, 0), teks_lengkap, font=font, align="left")
+    text_height = bbox[3] - bbox[1]
     
     x = margin_x
     y = img.height - margin_y - text_height
     
-    # Ketebalan outline menyesuaikan secara halus
     ketebalan_outline = max(1, int(ukuran_font_ideal / 15))
     
     draw.multiline_text(
