@@ -2,6 +2,8 @@ import streamlit as st
 from PIL import Image, ImageDraw, ImageFont, ExifTags, ImageOps
 from datetime import datetime
 import io
+import os
+import urllib.request
 
 def ambil_waktu_exif(img):
     try:
@@ -17,32 +19,30 @@ def ambil_waktu_exif(img):
     return datetime.now().strftime("%b %d, %Y %I:%M:%S %p")
 
 def dapatkan_font(ukuran_ideal):
-    # Daftar font alternatif untuk Windows, Mac, dan Linux/Streamlit Cloud
-    daftar_font = [
-        "arial.ttf", 
-        "DejaVuSans.ttf", 
-        "LiberationSans-Regular.ttf", 
-        "FreeSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-        "C:\\Windows\\Fonts\\arial.ttf"
-    ]
+    font_name = "Roboto-Regular.ttf"
     
-    for nama_font in daftar_font:
+    # Jika font belum ada di folder, aplikasi akan mengunduhnya otomatis
+    if not os.path.exists(font_name):
         try:
-            return ImageFont.truetype(nama_font, ukuran_ideal)
-        except IOError:
-            continue
-            
-    # Jika semua gagal, akan pakai default (kemungkinan kecil di Linux/Windows standar)
-    return ImageFont.load_default()
+            url = "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf"
+            urllib.request.urlretrieve(url, font_name)
+        except Exception:
+            pass # Lanjut ke blok try-except di bawah
+    
+    try:
+        # Mencoba menggunakan font yang diunduh
+        return ImageFont.truetype(font_name, ukuran_ideal)
+    except IOError:
+        # Memunculkan peringatan di Streamlit jika font tetap gagal dimuat
+        st.warning("⚠️ Font gagal dimuat, menggunakan font bawaan (ukuran akan sangat kecil).")
+        return ImageFont.load_default()
 
 def beri_watermark(img, teks_waktu, teks_lokasi):
     img = ImageOps.exif_transpose(img)
     draw = ImageDraw.Draw(img)
     
-    # Memperbesar rasio font agar lebih proporsional (dibagi 25 bukan 35)
-    ukuran_font_ideal = max(int(img.height / 25), 16) 
+    # Memperbesar ukuran font secara signifikan (dibagi 15, sebelumnya 25)
+    ukuran_font_ideal = max(int(img.height / 15), 24) 
     font = dapatkan_font(ukuran_font_ideal)
         
     teks_lengkap = f"{teks_waktu}\n{teks_lokasi}"
@@ -51,19 +51,21 @@ def beri_watermark(img, teks_waktu, teks_lokasi):
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
     
+    # Menambahkan spasi dari tepi gambar
     margin_x = int(img.width * 0.03)
     margin_y = int(img.height * 0.03)
     
     x = margin_x
     y = img.height - margin_y - text_height
     
+    # Teks dengan garis tepi (stroke) tebal agar terbaca di background terang/gelap
     draw.multiline_text(
         (x, y), 
         teks_lengkap, 
         font=font, 
         fill="white", 
         align="left", 
-        stroke_width=2,
+        stroke_width=int(ukuran_font_ideal/15) + 1, # Ketebalan outline menyesuaikan ukuran font
         stroke_fill="black"
     )
     
