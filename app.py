@@ -27,13 +27,11 @@ def dapatkan_font(ukuran_ideal):
             url = "https://github.com/googlefonts/roboto/raw/main/src/hinted/Roboto-Regular.ttf"
             urllib.request.urlretrieve(url, font_name)
         except Exception:
-            pass # Lanjut ke blok try-except di bawah
+            pass 
     
     try:
-        # Mencoba menggunakan font yang diunduh
         return ImageFont.truetype(font_name, ukuran_ideal)
     except IOError:
-        # Memunculkan peringatan di Streamlit jika font tetap gagal dimuat
         st.warning("⚠️ Font gagal dimuat, menggunakan font bawaan (ukuran akan sangat kecil).")
         return ImageFont.load_default()
 
@@ -41,8 +39,12 @@ def beri_watermark(img, teks_waktu, teks_lokasi):
     img = ImageOps.exif_transpose(img)
     draw = ImageDraw.Draw(img)
     
-    # Memperbesar ukuran font secara signifikan (dibagi 15, sebelumnya 25)
-    ukuran_font_ideal = max(int(img.height / 15), 24) 
+    # MENGHITUNG UKURAN PROPORSIONAL BUKAN HANYA DARI TINGGI
+    # Mengambil dimensi terkecil antara lebar dan tinggi foto
+    dimensi_terkecil = min(img.width, img.height)
+    
+    # Dibagi 35 agar pas (tidak sekecil semut, tidak sebesar raksasa)
+    ukuran_font_ideal = max(int(dimensi_terkecil / 35), 14) 
     font = dapatkan_font(ukuran_font_ideal)
         
     teks_lengkap = f"{teks_waktu}\n{teks_lokasi}"
@@ -51,21 +53,23 @@ def beri_watermark(img, teks_waktu, teks_lokasi):
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
     
-    # Menambahkan spasi dari tepi gambar
+    # Margin 3% dari ukuran foto agar tidak terlalu mepet tepi
     margin_x = int(img.width * 0.03)
     margin_y = int(img.height * 0.03)
     
     x = margin_x
     y = img.height - margin_y - text_height
     
-    # Teks dengan garis tepi (stroke) tebal agar terbaca di background terang/gelap
+    # Ketebalan outline menyesuaikan secara halus
+    ketebalan_outline = max(1, int(ukuran_font_ideal / 15))
+    
     draw.multiline_text(
         (x, y), 
         teks_lengkap, 
         font=font, 
         fill="white", 
         align="left", 
-        stroke_width=int(ukuran_font_ideal/15) + 1, # Ketebalan outline menyesuaikan ukuran font
+        stroke_width=ketebalan_outline,
         stroke_fill="black"
     )
     
